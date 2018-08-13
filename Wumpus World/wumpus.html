@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Wumpus World</title>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+</head>
+<body>
+
+	<pre id="game-state-array"></pre>
+	<div id="board">
+	</div>
+
+	<script>
+
+	var gameLoopIntervalId;
+	var movesHistory = [];
+	var gameOver;
+	var nOriginVisited;
+
+	var wumpusPos;
+	var goldPos;
+	var nPits;
+	var pitsPos = [];
+	var prevAgentPos;
+	var agentPos;
+	var nStenchDiscovered;
+	var nGoldPicked;
+	var nWumpusKilled;
+
+	function initGame(){
+		gameOver = false;
+		movesHistory.push({
+			x: 0,
+			y: 0
+		});
+
+		nOriginVisited = 0;
+		nStenchDiscovered = 0;
+		nGoldPicked = 0;
+		nWumpusKilled = 0;
+		prevAgentPos = {
+			x: 0,
+			y: 0
+		}
+		agentPos = {
+			x: 0,
+			y: 0
+		}
+		wumpusPos = {
+			x: Math.floor(Math.random() * 3) + 1,
+			y: Math.floor(Math.random() * 3) + 1
+		};
+		goldPos = {
+			x: Math.floor(Math.random() * 3) + 1,
+			y: Math.floor(Math.random() * 3) + 1
+		}
+		nPits = Math.floor(Math.random() * 4) + 1;
+		for(var i=0; i<nPits; i++){
+			pitsPos.push({
+				x: Math.floor(Math.random() * 3)+1,
+				y: Math.floor(Math.random() * 3)+1
+			});
+		}
+		initBoard();
+	}
+
+	function initBoard(){
+		board = [];
+		for(var i=0; i<4; i++){
+			board[i] = [];
+			for(var j=0; j<4; j++){
+				var cell = {
+					type: "none",
+					indicators: [],
+					discovered: false,
+					isAgentHere: false,
+					cellColor: "lightgreen"
+				};	
+				board[i][j] = cell;
+			}		
+		}
+		// set wumpus indicators
+		wumpusNeighborhood = getNeighborhood(wumpusPos.x, wumpusPos.y, board);
+		for (var i=0; i<wumpusNeighborhood.length; i++) {
+			wumpusNeighborPos = wumpusNeighborhood[i];
+			if(!board[wumpusNeighborPos.x][wumpusNeighborPos.y].indicators.includes("stench")){
+				board[wumpusNeighborPos.x][wumpusNeighborPos.y].indicators.push("stench");
+			}
+		}
+
+		// set pit indicators
+		for(var i=0; i<pitsPos.length; i++){
+			var pitPos = pitsPos[i];
+			pitNeighborhood = getNeighborhood(pitPos.x, pitPos.y, board);
+			for (var j=0; j<pitNeighborhood.length; j++) {
+				pitNeighborPos = pitNeighborhood[j];
+				if(!board[pitNeighborPos.x][pitNeighborPos.y].indicators.includes("breeze")){
+					board[pitNeighborPos.x][pitNeighborPos.y].indicators.push("breeze");
+				}
+			}
+		}
+
+		// set gold indicator
+		board[goldPos.x][goldPos.y].indicators.push("gold");
+		board[goldPos.x][goldPos.y].isGoldPicked = false;
+
+		// set initial position discovered
+		board[agentPos.x][agentPos.y].discovered = true;
+		board[agentPos.x][agentPos.y].cellColor = "chocolate";
+
+		// set wumpus
+		board[wumpusPos.x][wumpusPos.y].type = "wumpus";
+		board[wumpusPos.x][wumpusPos.y].isWumpusKilled = false;
+		console.log(board);
+	}
+
+	function getNeighborhood(i, j, board){
+		var neighborhood = [];
+		if(j-1 >= 0){
+			neighborhood.push({
+				x: i,
+				y: j-1
+			});
+		}
+		if(j+1 <= board.length-1){
+			neighborhood.push({
+				x: i,
+				y: j+1
+			});
+		}
+		if(i-1 >= 0){
+			neighborhood.push({
+				x: i-1,
+				y: j
+			});
+		}
+		if(i+1 <= board.length-1){
+			neighborhood.push({
+				x: i+1,
+				y: j
+			});
+		}
+		return neighborhood;
+	}
+
+	function renderBoard(board){
+		for(var i=0; i<board.length; i++){
+			var cellsHTML = '';
+			for(var j=0; j<board.length; j++){
+    			var cellHTML = initCell(board[i][j], i, j);
+    			cellsHTML += cellHTML;
+    		}    		
+    		var rowHTML = wrapCell(cellsHTML, i);
+			$("#board").append(rowHTML);	
+    	}
+	}
+
+	function initCell(cell, i, j, board){
+		var cellHTML = `<div id="cell-${i}-${j}" style="background-color:${cell.cellColor};">`;
+		if(cell.discovered){
+			/* show cell type */
+			if(cell.type == "pit"){
+				cellHTML += `<img src="images/pit.png" width="60px" height="60px">`;
+			} else if(cell.type == "wumpus"){
+				cellHTML += `<img src="images/wumpus.png" width="60px" height="60px">`;
+			} else if(cell.type == "gold"){
+				cellHTML += `<img src="images/gold.png" width="60px" height="60px">`;
+			}
+
+			/* show indicators */
+			cellHTML += `<div class="indicator">`;
+			for(var i=0; i<cell.indicators.length; i++){
+				if(cell.indicators[i] == "breeze"){
+					cellHTML += `<img src="images/breeze.png" width="40px" height="40px">`;
+				} else if(cell.indicators[i] == "stench"){
+					cellHTML += `<img src="images/stench.png" width="40px" height="40px">`;
+				} else if(cell.indicators[i] == "gold"){
+					cellHTML += `<img src="images/gold.png" width="40px" height="40px">`;
+				}
+			}
+			cellHTML += `</div>`;
+		}
+
+		// cellHTML += `type=${cell.type} indicators:[cell.indicators]|`;
+		if(cell.isAgentHere){
+			// cellHTML += `<div id="agent">`;
+			cellHTML += `<img src="images/agent.png" width="90px" height="90px">`;
+			// cellHTML += `</div>`;
+		}
+		cellHTML += `</div>`;
+		return cellHTML;
+	}
+
+	function wrapCell(cellHTML, i){
+		var rowHTML = `<div id="row-${i}">${cellHTML}</div>`;
+		return rowHTML;
+	}
+
+	function getMove(board, agentPos){
+		// if(agentPos.y < board.length-1){
+		// 	agentPos.y += 1;
+		// } else if(agentPos.x < board.length-1){
+		// 	agentPos.x += 1;
+		// }
+		// return agentPos;
+		var move;
+		var neighborhood = getNeighborhood(agentPos.x, agentPos.y, board);
+		var discoveredNeighborhood = [];	
+		var undiscoveredNeighborhood = [];
+		for(var i=0; i<neighborhood.length; i++){
+			var neighborPos = neighborhood[i];
+			if(board[neighborPos.x][neighborPos.y].discovered){
+				discoveredNeighborhood.push(neighborPos);
+			}else{
+				undiscoveredNeighborhood.push(neighborPos);
+			}
+		}
+
+		if(nOriginVisited == 2){
+			gameOver = true;
+			return agentPos;
+		}
+
+		if(nGoldPicked == 1 && gameOver){
+			if(movesHistory[movesHistory.length-1].x == goldPos.x && movesHistory[movesHistory.length-1].y == goldPos.y){
+				movesHistory.pop();
+			}
+			return movesHistory.pop();
+		}
+
+		if(nGoldPicked == 0 && gameOver){
+			movesHistory.pop();
+			return movesHistory.pop();
+		}
+		
+		// if no indicator in current position then select random from neighborhood
+		if(board[agentPos.x][agentPos.y].indicators.length == 0){
+			if(undiscoveredNeighborhood.length != 0){
+				move = undiscoveredNeighborhood[Math.floor(Math.random()*undiscoveredNeighborhood.length)];
+			}else{
+				move = discoveredNeighborhood[Math.floor(Math.random()*discoveredNeighborhood.length)];
+			}
+		}else{
+			if(discoveredNeighborhood.length != 0){
+				if(board[agentPos.x][agentPos.y].indicators.includes("stench")){
+					nStenchDiscovered += 1;
+					if(nStenchDiscovered == 1){
+						movesHistory.pop();
+						move = movesHistory.pop();
+					}
+
+					if(nStenchDiscovered == 2){
+						move = wumpusPos;
+
+					} else{
+						// gold has been picked up in previous move
+						move = discoveredNeighborhood[Math.floor(Math.random()*discoveredNeighborhood.length)];
+					}
+				} else if(board[agentPos.x][agentPos.y].indicators.includes("breeze")){
+					// move = discoveredNeighborhood[Math.floor(Math.random()*discoveredNeighborhood.length)];		
+					if(agentPos.x == 0 && agentPos.y == 0){
+						move = agentPos;
+						gameOver = true;
+						return move;
+					}
+					movesHistory.pop();
+					move = movesHistory[movesHistory.length-1];
+				} else{
+					move = agentPos;
+				}
+			}
+		}
+		if(move.x == wumpusPos.x && move.y == wumpusPos.y){
+			movesHistory.push(agentPos);
+		}else{
+			movesHistory.push(move);
+		}
+		return move;
+	}
+
+
+
+	$(document).ready(function(){
+		initGame();
+		gameLoopIntervalId = setInterval(function(){
+			// print game state array
+			$("#game-state-array").html(JSON.stringify(movesHistory, null, 4));
+			$("#board").empty();
+
+			board[agentPos.x][agentPos.y].isAgentHere = false;
+			
+			prevAgentPos = agentPos;
+			agentPos = getMove(board, agentPos);
+			if(nGoldPicked == 1 && gameOver && agentPos.x == 0 && agentPos.y == 0){
+				clearInterval(gameLoopIntervalId);
+				alert("Agent picked up Gold and returned back safely");
+			}
+			if(nGoldPicked == 0 && gameOver && agentPos.x == 0 && agentPos.y == 0){
+				clearInterval(gameLoopIntervalId);
+				alert("Agent could not proceed further");
+			}
+			if(agentPos.x == 0 && agentPos.y == 0){
+				nOriginVisited += 1;
+			}
+			console.log(agentPos);
+
+			board[agentPos.x][agentPos.y].isAgentHere = true;
+			board[agentPos.x][agentPos.y].discovered = true;
+			if(board[agentPos.x][agentPos.y].indicators.includes("gold") && !board[agentPos.x][agentPos.y].isGoldPicked){
+				board[agentPos.x][agentPos.y].cellColor = "gold";
+				board[goldPos.x][goldPos.y].isGoldPicked = true;
+				nGoldPicked += 1;
+				gameOver = true;
+				alert("Gold Picked");
+			} else{
+				if(board[agentPos.x][agentPos.y].cellColor != "gold"){
+					board[agentPos.x][agentPos.y].cellColor = "chocolate";
+				}
+			}
+
+			if(board[agentPos.x][agentPos.y].type == "wumpus" && !board[agentPos.x][agentPos.y].isWumpusKilled){
+				nWumpusKilled += 1;
+				board[agentPos.x][agentPos.y].isAgentHere = false;
+				board[prevAgentPos.x][prevAgentPos.y].isAgentHere = true;
+				agentPos = prevAgentPos;
+				alert("Wumpus Killed");
+
+				// set wumpus indicators
+				wumpusNeighborhood = getNeighborhood(wumpusPos.x, wumpusPos.y, board);
+				for (var i=0; i<wumpusNeighborhood.length; i++) {
+					wumpusNeighborPos = wumpusNeighborhood[i];
+					if(board[wumpusNeighborPos.x][wumpusNeighborPos.y].indicators.includes("stench")){
+						board[wumpusNeighborPos.x][wumpusNeighborPos.y].indicators = board[wumpusNeighborPos.x][wumpusNeighborPos.y].indicators.filter(e => e !== "stench");
+					}
+				}
+			} 
+			renderBoard(board);
+		}, 2000);
+	});
+	</script>
+	<style>
+		*{
+			margin: 0;
+			padding: 0;	
+		}
+
+		div[id^="row-"]{
+			display: flex;
+			flex-flow: row;
+		}
+
+		div[id^="cell-"]{
+			display: block;
+			width: 150px;
+			height: 150px;
+			border: 1px solid black;
+		}
+
+		div.indicator{
+			float: right;
+		}
+	</style>
+</body>
+</html>
