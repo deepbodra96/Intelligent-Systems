@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Connect 4</title>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+</head>
+<body>
+	<div id="board">
+	</div>
+	<div id="results">
+
+	</div>	
+	<script>
+
+		var mat = [ 
+			[ 1, 0, 1, 1, 1, 1, 0, 1, 1, 1 ], 
+			[ 1, 0, 1, 0, 1, 1, 1, 0, 1, 1 ], 
+			[ 1, 1, 1, 0, 1, 1, 0, 1, 0, 1 ], 
+			[ 1, 0, 0, 0, 1, 0, 0, 0, 0, 1 ], 
+			[ 1, 1, 1, 0, 1, 1, 1, 0, 1, 0 ], 
+			[ 1, 0, 1, 1, 1, 1, 0, 1, 0, 0 ], 
+			[ 1, 0, 0, 0, 1, 0, 0, 0, 0, 1 ], 
+			[ 1, 0, 1, 1, 1, 1, 0, 1, 1, 1 ], 
+			[ 1, 1, 1, 0, 1, 1, 1, 1, 1, 1 ] 
+		]; 
+
+		function initGame(){
+			initBoard();
+		}
+
+		function initBoard(){
+			board = [];
+			for(var i=0; i<6; i++){
+				board[i] = [];
+				for(var j=0; j<7; j++){
+					var cell = {
+						type: "agent",
+						cellColor: "white"
+					};	
+					board[i][j] = cell;
+				}		
+			}
+			console.log(board);
+		}
+
+		function renderBoard(board){
+			for(var i=0; i<board.length; i++){
+				var cellsHTML = '';
+				for(var j=0; j<board.length; j++){
+					var cellHTML = initCell(board[i][j], i, j);
+					cellsHTML += cellHTML;
+				}    		
+				var rowHTML = wrapCell(cellsHTML, i);
+				$("#board").append(rowHTML);	
+			}
+		}
+
+		function initCell(cell, i, j, board){
+			var cellHTML = `<div id="cell-${i}-${j}">`;
+			if(cell == 0){
+				cellHTML += `<div class="piece-holder" style="background-color:black;"></div>`;
+			}else{
+				cellHTML += `<div class="piece-holder" style="background-color:cyan;"></div>`;
+			}
+			cellHTML += `</div>`;
+			return cellHTML;
+		}
+
+		function wrapCell(cellHTML, i){
+			var rowHTML = `<div id="row-${i}">${cellHTML}</div>`;
+			return rowHTML;
+		}
+
+		function getMove(board, agentPos){
+
+		}
+
+		$(document).ready(function(){
+			initGame();
+			renderBoard(mat);
+		});
+
+		function getNeighborhood(i, j, board){
+			var neighborhood = [];
+			if(j-1 >= 0){
+				neighborhood.push({
+					x: i,
+					y: j-1
+				});
+			}
+			if(j+1 <= board.length-1){
+				neighborhood.push({
+					x: i,
+					y: j+1
+				});
+			}
+			if(i-1 >= 0){
+				neighborhood.push({
+					x: i-1,
+					y: j
+				});
+			}
+			if(i+1 <= board.length-1){
+				neighborhood.push({
+					x: i+1,
+					y: j
+				});
+			}
+			return neighborhood;
+		}
+
+		var ROW = 9;
+		var COL = 10;
+
+		function isValidCell(row, col){
+			return (row >= 0) && (row < ROW) && (col >= 0) && (col < COL);
+		}
+
+		var rowNum = [-1, 0, 0, 1];
+		var colNum = [0, -1, 1, 0];
+
+		function makeArray(d1, d2, val) {
+			var arr = [];
+			for(i = 0; i < d2; i++) {
+				arr.push(new Array(d1).fill(val));
+			}
+			return arr;
+		}
+
+		function breadth_first_search(mat, src, dest){
+			if (!mat[src.x][src.y] || !mat[dest.x][dest.y])
+				return Number.MAX_SAFE_INTEGER;
+
+			var visited = makeArray(ROW, COL, false); 
+
+    		// Mark the source cell as visited 
+			visited[src.x][src.y] = true; 
+
+		    // Create a queue for BFS
+		    var q = new Array(); 
+
+		    // distance of source cell is 0 
+		    var s = {pt:src, dist:0}; 
+		    q.push(s);  // Enqueue source cell 
+
+		    // Do a BFS starting from source cell 
+		    while (q.length != 0) { 
+		    	var curr = q[0]; 
+		    	var pt = curr.pt; 
+
+		        // If we have reached the destination cell, 
+		        // we are done 
+		        if (pt.x == dest.x && pt.y == dest.y) 
+		        	return curr.dist; 
+
+		        // Otherwise dequeue the front cell in the queue 
+		        // and enqueue its adjacent cells 
+		        q.shift(); 
+
+		        for (var i = 0; i < 4; i++) {
+
+		        	var row = pt.x + rowNum[i]; 
+		        	var col = pt.y + colNum[i]; 
+
+		            // if adjacent cell is valid, has path and 
+		            // not visited yet, enqueue it. 
+		            if (isValidCell(row, col) && mat[row][col] &&  !visited[row][col]) { 
+		                // mark cell as visited and enqueue it 
+		                visited[row][col] = true; 
+		                var Adjcell = {pt:{x:row, y:col}, dist: curr.dist + 1 }; 
+		                q.push(Adjcell); 
+		            } 
+		        } 
+		    	console.log("visited", visited);
+		    }
+		    //return -1 if destination cannot be reached 
+		    return Number.MAX_SAFE_INTEGER;
+		}
+
+		function main() { 
+
+			var source = {x:0, y:0}; 
+			var dest = {x:ROW-1, y:COL-1}; 
+
+			var dist = breadth_first_search(mat, source, dest); 
+
+			if (dist != Number.MAX_SAFE_INTEGER) {
+				console.log("Shortest Path is ", dist); 
+				$("#results").append("Shortest Path is "+dist);
+			}
+			else console.log("Shortest Path doesn't exist"); 
+
+			return 0; 
+		}
+
+		main();
+	</script>
+	<style>
+		*{
+			margin: 0;
+			padding: 0;	
+		}
+
+		div[id^="row-"]{
+			display: flex;
+			flex-flow: row;
+		}
+
+		div[id^="cell-"]{
+			display: block;
+			width: 50px;
+			height: 50px;
+			border: 1px solid black;
+			background-color: cyan;
+		}
+
+		div.piece-holder{
+			width: 40px;
+			height: 40px;
+			background-color: white;
+			border-radius: 50%;
+			position: relative;
+			left: 5px;
+			top: 5px;
+		}
+
+		div.indicator{
+			float: right;
+		}
+
+		div#results{
+			font-size: 20px;
+			background-color: salmon;
+			display: inline;
+		}
+	</style>
+</body>
+</html>

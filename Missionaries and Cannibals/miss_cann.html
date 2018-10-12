@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Missionaries and Cannibals</title>
+</head>
+<body>
+  <div id="main">
+    <div id="solution_container">
+      <pre id="solution"></pre>
+    </div>
+    <div id="anim_container">
+      TOP
+      <div id="top-container">
+        <img src="img/missionary.png" width="100px">
+        <img src="img/missionary.png" width="100px">
+        <img src="img/missionary.png" width="100px">
+        <img src="img/cannibal.png" width="100px">
+        <img src="img/cannibal.png" width="100px">
+        <img src="img/cannibal.png" width="100px">
+      </div>
+      BOTTOM
+      <div id="bottom-container">
+      </div>
+    </div>
+    <div>
+      <script type="text/javascript">
+
+        var topContainer = document.getElementById("top-container");
+        var bottomContainer = document.getElementById("bottom-container"); 
+        var solution = [];
+
+        var BOAT_SIZE = 2;
+
+        function init(n) {
+          var state = {
+            boat: 'top',
+            top: {
+              cannibal: n,
+              missionary: n
+            },
+            bottom: {
+              cannibal: 0,
+              missionary: 0
+            }
+          };
+          return state;
+        }
+
+        function failed() {
+          console.log("no solution found");
+        }
+
+        function is_success(candidate, n) {
+          var state = candidate.state;
+          return state.top.cannibal    == 0 &&
+          state.top.missionary  == 0 &&
+          state.bottom.cannibal   == n &&
+          state.bottom.missionary == n;  
+        }
+
+        function get_candidate_index(fringe){
+          return 0;
+        }
+
+        function get_other_side(side) {
+          if (side == 'top') return 'bottom';
+          else return 'top';
+        }
+
+        function get_children(candidate) {
+          var children = [];
+          var state = candidate.state;
+          var side  = state[state.boat];
+          var other_side = get_other_side(state.boat);
+
+          for (var c = 0; c <= side.cannibal; c++) {
+            if (c > BOAT_SIZE) continue;
+            for (var m = 0; m <= side.missionary; m++) {
+              if (c == 0 && m ==0) continue;
+              if (c + m > BOAT_SIZE) break;
+              if (m > 0 && c > m) continue;
+              var obj = {
+                from: candidate,
+                state: {
+                  boat: other_side,
+                  top: {
+                    cannibal: (other_side == 'top') ? state.top.cannibal+c : state.top.cannibal-c,
+                    missionary: (other_side == 'top') ? state.top.missionary+m : state.top.missionary-m
+                  },
+                  bottom: {
+                    cannibal: (other_side == 'bottom') ? state.bottom.cannibal+c : state.bottom.cannibal-c,
+                    missionary: (other_side == 'bottom') ? state.bottom.missionary+m : state.bottom.missionary-m
+                  }
+                }
+              };
+              if (obj.state.top.missionary > 0 
+                && (obj.state.top.cannibal > obj.state.top.missionary)) continue;
+                if (obj.state.bottom.missionary > 0
+                  && (obj.state.bottom.cannibal > obj.state.bottom.missionary)) continue;
+                  children.push(obj);
+              }
+            }
+
+            return children;
+          }
+
+          function contains(visited, state) {
+            for (var i = 0; i < visited.length; i++) {
+              var v = visited[i];
+              if (v.boat == state.boat 
+                && v.top.cannibal == state.top.cannibal
+                && v.top.missionary == state.top.missionary
+                && v.bottom.cannibal == state.bottom.cannibal
+                && v.bottom.missionary == state.bottom.missionary)
+                return true;
+            }
+            return false;
+          }
+
+          function do_success(candidate) {
+            var ls = [];
+            while (candidate != undefined) {
+              ls.push(candidate);
+              candidate = candidate.from;
+            }
+            for (var i = ls.length-1; i >= 0; i--) {
+              console.log(ls[i].state);
+              solution.push(ls[i].state);
+            }
+          }
+
+          function plan(init_state) {
+            var visited = [];
+            var fringe = [{state: init_state}];
+            while (fringe.length != 0) {
+             var idx = get_candidate_index(fringe);
+             var candidate = fringe.splice(idx,1)[0];
+             if (contains(visited, candidate.state)) {
+               continue;
+             }
+             if  (is_success(candidate, n)) {
+               do_success(candidate);
+             }
+             visited.push(candidate.state);
+             var children = get_children(candidate);
+             fringe = fringe.concat(children);
+           }
+           failed();
+         }
+
+         function visualize_solution(x){
+          var state = solution[x];
+          topContainer.innerHTML = "";
+          bottomContainer.innerHTML = "";
+
+          for(var i=0; i<state["top"]["missionary"]; i++){
+            topContainer.innerHTML += '<img src="img/missionary.png" width="100px">';
+          }
+
+          for(var i=0; i<state["top"]["cannibal"]; i++){
+            topContainer.innerHTML += '<img src="img/cannibal.png" width="100px">';
+          }
+
+          for(var i=0; i<state["bottom"]["missionary"]; i++){
+            bottomContainer.innerHTML += '<img src="img/missionary.png" width="100px">';
+          }
+
+          for(var i=0; i<state["bottom"]["cannibal"]; i++){
+            bottomContainer.innerHTML += '<img src="img/cannibal.png" width="100px">';
+          }
+        }
+
+        function sleep(ms) {
+          return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function main (n){
+          var init_state = init(n);
+          plan(init_state);
+          document.getElementById("solution").innerHTML = `Solved in ${solution.length - 1} moves\n`
+          document.getElementById("solution").innerHTML += JSON.stringify(solution, null, 4);
+          var x=1;
+          (function loop(i) {          
+           setTimeout(function () {  
+              visualize_solution(x);
+              x++;
+              if (--i) loop(i);      //  decrement i and call myLoop again if i > 0
+        }, 1000)
+         })(solution.length-1); 
+       }
+
+       var n = 3;
+       main(n);
+     </script>
+     <style>
+     #main{
+      display: block;
+    }
+
+    #solution_container, #anim_container{
+      display: inline-block;
+    }
+
+    #anim_container{
+      position: absolute;
+      top: 0;
+      left: 400px;
+    }
+
+    #top-container{
+      margin-bottom: 100px;
+    }
+  </style>
+</body>
+</html>
